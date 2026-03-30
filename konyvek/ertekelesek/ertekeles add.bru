@@ -1,0 +1,15 @@
+meta {
+  name: ertekeles add
+  type: http
+  seq: 1
+}
+
+post {
+  url: http://localhost:8000/books/1/ratings
+  body: none
+  auth: inherit
+}
+
+settings {
+  encodeUrl: true
+}
