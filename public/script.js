@@ -210,7 +210,6 @@ async function loadRatings() {
                     <div class="list-item-sub">K\u00f6nyv ID: ${r.book_id} \u00b7 ${new Date(r.created_at).toLocaleDateString('hu-HU')}</div>
                 </div>
                 <div class="list-item-actions">
-                    <button onclick="event.stopPropagation(); editItem('ratings', ${r.id})" class="btn-warning">\u270f\ufe0f</button>
                     <button onclick="event.stopPropagation(); deleteItem('ratings', ${r.id})" class="btn-danger">\ud83d\uddd1\ufe0f</button>
                 </div>
             </div>
