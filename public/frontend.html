@@ -16,6 +16,7 @@
         <!-- TAB NAVIGÁCIÓ -->
         <nav class="tabs">
             <button class="tab-btn active" onclick="switchTab('books')">&#128214; Könyvek</button>
+            <button class="tab-btn" onclick="switchTab('authors')">&#9997;&#65039; Írók</button>
             <button class="tab-btn" onclick="switchTab('publishers')">&#127970; Kiadók</button>
             <button class="tab-btn" onclick="switchTab('categories')">&#127991; Kategóriák</button>
             <button class="tab-btn" onclick="switchTab('ratings')">&#11088; Értékelések</button>
@@ -96,6 +97,43 @@
                         </div>
                     </div>
                     <div id="books-container"></div>
+                </main>
+            </div>
+        </div>
+
+        <!-- ÍRÓK TAB -->
+        <div id="tab-authors" class="tab-content">
+            <div class="content">
+                <aside class="sidebar">
+                    <div class="section-title">✍️ Író Műveletek</div>
+                    <div id="alert-authors"></div>
+                    <div class="form-group">
+                        <label>Művelet típusa</label>
+                        <select id="authors-operation-mode">
+                            <option value="add">➕ Új író hozzáadása</option>
+                            <option value="edit">✏️ Író szerkesztése</option>
+                        </select>
+                    </div>
+                    <div id="authors-edit-info" class="edit-info" style="display:none;">
+                        <strong>ℹ️ Szerkesztési mód:</strong><br>Kattints egy íróra!
+                    </div>
+                    <form id="authors-form">
+                        <input type="hidden" id="authors-id">
+                        <div class="form-group">
+                            <label>Író neve *</label>
+                            <input type="text" id="authors-name" required placeholder="pl. J.K. Rowling">
+                        </div>
+                        <div class="form-group">
+                            <label>Életrajz</label>
+                            <textarea id="authors-bio" placeholder="Rövid életrajz az íróról..."></textarea>
+                        </div>
+                        <button type="submit" id="authors-submit-btn">💾 Mentés</button>
+                        <button type="button" class="btn-secondary" id="authors-reset-btn">🔄 Törlés</button>
+                    </form>
+                </aside>
+                <main class="main">
+                    <div class="section-title">✍️ Írók listája</div>
+                    <div id="authors-container"></div>
                 </main>
             </div>
         </div>

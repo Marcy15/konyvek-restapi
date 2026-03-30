@@ -3,7 +3,8 @@ let currentBooks = [];
 let currentPublishers = [];
 let currentCategories = [];
 let currentRatings = [];
-let selectedId = { books: null, publishers: null, categories: null, ratings: null };
+let currentAuthors = [];
+let selectedId = { books: null, publishers: null, categories: null, ratings: null, authors: null };
 
 document.addEventListener('DOMContentLoaded', () => {
     loadMetadata();
@@ -35,6 +36,12 @@ function setupForms() {
     });
     document.getElementById('ratings-form').addEventListener('submit', (e) => handleSubmit(e, 'ratings'));
     document.getElementById('ratings-reset-btn').addEventListener('click', () => resetForm('ratings'));
+
+    document.getElementById('authors-operation-mode').addEventListener('change', (e) => {
+        toggleEditMode('authors', e.target.value === 'edit');
+    });
+    document.getElementById('authors-form').addEventListener('submit', (e) => handleSubmit(e, 'authors'));
+    document.getElementById('authors-reset-btn').addEventListener('click', () => resetForm('authors'));
 }
 
 function toggleEditMode(section, isEdit) {
@@ -51,6 +58,7 @@ function switchTab(tab) {
     if (tab === 'publishers') loadPublishers();
     if (tab === 'categories') loadCategories();
     if (tab === 'ratings') loadRatings();
+    if (tab === 'authors') loadAuthors();
 }
 
 async function loadMetadata() {
@@ -191,6 +199,33 @@ async function loadCategories() {
     }
 }
 
+async function loadAuthors() {
+    const container = document.getElementById('authors-container');
+    container.innerHTML = '<div class="loading"><div class="spinner"></div>Bet\u00f6lt\u00e9s...</div>';
+    try {
+        const data = await fetch('/authors').then(r => r.json());
+        currentAuthors = data.items;
+        if (!currentAuthors.length) {
+            container.innerHTML = emptyState('\u270d\ufe0f', 'Nincsenek \u00edr\u00f3k', 'Adj hozz\u00e1 \u00fajat a bal oldali \u0171rlappal!');
+            return;
+        }
+        container.innerHTML = '<div class="simple-list">' + currentAuthors.map(a => `
+            <div class="list-item ${selectedId.authors === a.id ? 'selected' : ''}" onclick="selectItem('authors', ${a.id})">
+                <div class="list-item-info">
+                    <div class="list-item-title">\u270d\ufe0f ${escapeHtml(a.name)}</div>
+                    <div class="list-item-sub">${a.bio ? escapeHtml(a.bio.substring(0, 80)) + (a.bio.length > 80 ? '...' : '') : 'Nincs életrajz'} &middot; ID: ${a.id}</div>
+                </div>
+                <div class="list-item-actions">
+                    <button onclick="event.stopPropagation(); editItem('authors', ${a.id})" class="btn-warning">\u270f\ufe0f</button>
+                    <button onclick="event.stopPropagation(); deleteItem('authors', ${a.id})" class="btn-danger">\ud83d\uddd1\ufe0f</button>
+                </div>
+            </div>
+        `).join('') + '</div>';
+    } catch (err) {
+        container.innerHTML = '<div class="alert alert-error">\u274c Hiba az \u00edr\u00f3k bet\u00f6lt\u00e9sekor!</div>';
+    }
+}
+
 async function loadRatings() {
     const container = document.getElementById('ratings-container');
     container.innerHTML = '<div class="loading"><div class="spinner"></div>Bet\u00f6lt\u00e9s...</div>';
@@ -225,7 +260,7 @@ function selectItem(section, id) {
 }
 
 function editItem(section, id) {
-    const items = { books: currentBooks, publishers: currentPublishers, categories: currentCategories, ratings: currentRatings };
+    const items = { books: currentBooks, publishers: currentPublishers, categories: currentCategories, ratings: currentRatings, authors: currentAuthors };
     const item = items[section].find(i => i.id === id);
     if (!item) return;
     document.getElementById(`${section}-operation-mode`).value = 'edit';
@@ -244,6 +279,10 @@ function editItem(section, id) {
     }
     if (section === 'publishers') document.getElementById('publishers-name').value = item.name;
     if (section === 'categories') document.getElementById('categories-name').value = item.name;
+    if (section === 'authors') {
+        document.getElementById('authors-name').value = item.name;
+        document.getElementById('authors-bio').value = item.bio || '';
+    }
     if (section === 'ratings') {
         document.getElementById('ratings-book-id').value = item.book_id;
         document.getElementById('ratings-score').value = item.score;
@@ -253,7 +292,7 @@ function editItem(section, id) {
 }
 
 async function deleteItem(section, id) {
-    const names = { books: 'k\u00f6nyvet', publishers: 'kiad\u00f3t', categories: 'kateg\u00f3ri\u00e1t', ratings: '\u00e9rt\u00e9kel\u00e9st' };
+    const names = { books: 'k\u00f6nyvet', publishers: 'kiad\u00f3t', categories: 'kateg\u00f3ri\u00e1t', ratings: '\u00e9rt\u00e9kel\u00e9st', authors: '\u00edr\u00f3t' };
     if (!confirm(`Biztosan t\u00f6rl\u00f6d ezt a ${names[section]}?`)) return;
     try {
         const response = await fetch(`/${section}/${id}`, { method: 'DELETE' });
@@ -297,6 +336,13 @@ async function handleSubmit(e, section) {
         payload = { name: document.getElementById('categories-name').value };
         endpoint = mode === 'edit' ? `/categories/${id}` : '/categories';
     }
+    if (section === 'authors') {
+        payload = {
+            name: document.getElementById('authors-name').value,
+            bio: document.getElementById('authors-bio').value
+        };
+        endpoint = mode === 'edit' ? `/authors/${id}` : '/authors';
+    }
     if (section === 'ratings') {
         const bookId = document.getElementById('ratings-book-id').value;
         payload = { score: parseInt(document.getElementById('ratings-score').value) };
@@ -312,7 +358,7 @@ async function handleSubmit(e, section) {
             showAlert(section, mode === 'edit' ? '\u2705 Sikeresen friss\u00edtve!' : '\u2705 Sikeresen hozz\u00e1adva!', 'success');
             resetForm(section);
             reloadSection(section);
-            if (section === 'publishers' || section === 'categories') loadMetadata();
+            if (section === 'publishers' || section === 'categories' || section === 'authors') loadMetadata();
         } else {
             const err = await response.json();
             showAlert(section, `\u274c Hiba: ${err.message || err.error || 'Ismeretlen hiba'}`, 'error');
@@ -336,6 +382,7 @@ function reloadSection(section) {
     if (section === 'publishers') loadPublishers();
     if (section === 'categories') loadCategories();
     if (section === 'ratings') loadRatings();
+    if (section === 'authors') loadAuthors();
 }
 
 function showAlert(section, message, type) {
