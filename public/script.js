@@ -1,18 +1,9 @@
 const API_BASE = '';
-
 let currentBooks = [];
-let currentAuthors = [];
 let currentPublishers = [];
 let currentCategories = [];
 let currentRatings = [];
-
-let selectedId = {
-    books: null,
-    authors: null,
-    publishers: null,
-    categories: null,
-    ratings: null
-};
+let selectedId = { books: null, publishers: null, categories: null, ratings: null };
 
 document.addEventListener('DOMContentLoaded', () => {
     loadMetadata();
@@ -26,12 +17,6 @@ function setupForms() {
     });
     document.getElementById('books-form').addEventListener('submit', (e) => handleSubmit(e, 'books'));
     document.getElementById('books-reset-btn').addEventListener('click', () => resetForm('books'));
-
-    document.getElementById('authors-operation-mode').addEventListener('change', (e) => {
-        toggleEditMode('authors', e.target.value === 'edit');
-    });
-    document.getElementById('authors-form').addEventListener('submit', (e) => handleSubmit(e, 'authors'));
-    document.getElementById('authors-reset-btn').addEventListener('click', () => resetForm('authors'));
 
     document.getElementById('publishers-operation-mode').addEventListener('change', (e) => {
         toggleEditMode('publishers', e.target.value === 'edit');
@@ -54,27 +39,18 @@ function setupForms() {
 
 function toggleEditMode(section, isEdit) {
     document.getElementById(`${section}-edit-info`).style.display = isEdit ? 'block' : 'none';
-    document.getElementById(`${section}-submit-btn`).textContent = isEdit ? '✏️ Frissítés' : '💾 Mentés';
-
-    if (!isEdit) {
-        resetForm(section);
-    }
+    document.getElementById(`${section}-submit-btn`).textContent = isEdit ? '\u270f\ufe0f Friss\u00edt\u00e9s' : '\ud83d\udcbe Ment\u00e9s';
+    if (!isEdit) resetForm(section);
 }
 
-function switchTab(tab, event) {
+function switchTab(tab) {
     document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-
     document.getElementById(`tab-${tab}`).classList.add('active');
-    if (event) {
-        event.target.classList.add('active');
-    }
-
-    if (tab === 'authors') loadAuthors();
+    event.target.classList.add('active');
     if (tab === 'publishers') loadPublishers();
     if (tab === 'categories') loadCategories();
     if (tab === 'ratings') loadRatings();
-    if (tab === 'books') loadBooks();
 }
 
 async function loadMetadata() {
@@ -85,34 +61,21 @@ async function loadMetadata() {
             fetch('/categories').then(r => r.json()),
             fetch('/books').then(r => r.json())
         ]);
-
-        currentAuthors = authors.items || [];
-        currentPublishers = publishers.items || [];
-        currentCategories = categories.items || [];
-        currentBooks = books.items || [];
-
-        populateSelect('books-author-id', currentAuthors, 'id', 'name');
-        populateSelect('books-publisher-id', currentPublishers, 'id', 'name');
-        populateSelect('books-category-id', currentCategories, 'id', 'name');
-
-        populateSelect('filter-author', currentAuthors, 'id', 'name', true);
-        populateSelect('filter-publisher', currentPublishers, 'id', 'name', true);
-        populateSelect('filter-category', currentCategories, 'id', 'name', true);
-
-        populateSelect('ratings-book-id', currentBooks, 'id', 'title');
+        populateSelect('books-author-id', authors.items, 'id', 'name');
+        populateSelect('books-publisher-id', publishers.items, 'id', 'name');
+        populateSelect('books-category-id', categories.items, 'id', 'name');
+        populateSelect('filter-author', authors.items, 'id', 'name', true);
+        populateSelect('filter-publisher', publishers.items, 'id', 'name', true);
+        populateSelect('filter-category', categories.items, 'id', 'name', true);
+        populateSelect('ratings-book-id', books.items, 'id', 'title');
     } catch (err) {
         console.error('Metadata load error:', err);
-        showAlert('Nem sikerült betölteni a metaadatokat.', 'error');
     }
 }
 
 function populateSelect(elementId, items, valueKey, textKey, keepFirst = false) {
     const select = document.getElementById(elementId);
-    if (!select) return;
-
-    const firstOption = keepFirst ? select.querySelector('option')?.outerHTML || '' : '';
-    select.innerHTML = firstOption;
-
+    if (!keepFirst) select.innerHTML = '<option value="">-- V\u00e1lassz --</option>';
     items.forEach(item => {
         const option = document.createElement('option');
         option.value = item[valueKey];
@@ -123,445 +86,270 @@ function populateSelect(elementId, items, valueKey, textKey, keepFirst = false) 
 
 async function loadBooks() {
     const container = document.getElementById('books-container');
-    container.innerHTML = loadingTemplate();
-
+    container.innerHTML = '<div class="loading"><div class="spinner"></div>Bet\u00f6lt\u00e9s...</div>';
     try {
-        const response = await fetch('/books');
-        const data = await response.json();
-        currentBooks = data.items || [];
-        renderBooks(currentBooks);
+        const params = new URLSearchParams();
+        const q = document.getElementById('books-search').value;
+        const authorId = document.getElementById('filter-author').value;
+        const publisherId = document.getElementById('filter-publisher').value;
+        const categoryId = document.getElementById('filter-category').value;
+        if (q) params.append('q', q);
+        if (authorId) params.append('author_id', authorId);
+        if (publisherId) params.append('publisher_id', publisherId);
+        if (categoryId) params.append('category_id', categoryId);
+        const url = params.toString() ? `/books?${params}` : '/books';
+        const data = await fetch(url).then(r => r.json());
+        currentBooks = data.items;
+        if (!currentBooks.length) {
+            container.innerHTML = emptyState('\ud83d\udced', 'Nincsenek k\u00f6nyvek', 'Adj hozz\u00e1 \u00fajat a bal oldali \u0171rlappal!');
+            return;
+        }
+        container.innerHTML = '<div class="books-grid">' + currentBooks.map(book => `
+            <div class="book-card ${selectedId.books === book.id ? 'selected' : ''}" onclick="selectItem('books', ${book.id})">
+                <div class="book-title">${escapeHtml(book.title)}</div>
+                <div class="book-meta">
+                    <strong>Szerz\u0151:</strong> ${escapeHtml(book.author_name)}<br>
+                    <strong>Kiad\u00f3:</strong> ${escapeHtml(book.publisher_name)}<br>
+                    <strong>Kateg\u00f3ria:</strong> ${escapeHtml(book.category_name)}
+                </div>
+                <div class="book-price">${Number(book.price).toLocaleString('hu-HU')} Ft</div>
+                <div class="book-rating">
+                    <span class="stars">${'\u2b50'.repeat(Math.round(book.avg_rating))}</span>
+                    <span>${Number(book.avg_rating).toFixed(1)} (${book.ratings_count} \u00e9rt\u00e9kel\u00e9s)</span>
+                </div>
+                <span class="badge badge-isbn">ISBN: ${escapeHtml(book.isbn)}</span>
+                <div class="book-actions">
+                    <button onclick="event.stopPropagation(); editItem('books', ${book.id})" class="btn-warning">\u270f\ufe0f Szerkeszt</button>
+                    <button onclick="event.stopPropagation(); deleteItem('books', ${book.id})" class="btn-danger">\ud83d\uddd1\ufe0f T\u00f6rl\u00e9s</button>
+                </div>
+            </div>
+        `).join('') + '</div>';
     } catch (err) {
-        console.error(err);
-        container.innerHTML = emptyTemplate('Hiba történt a könyvek betöltésekor.');
+        container.innerHTML = '<div class="alert alert-error">\u274c Hiba a k\u00f6nyvek bet\u00f6lt\u00e9sekor!</div>';
     }
 }
 
-function renderBooks(books) {
-    const container = document.getElementById('books-container');
-
-    if (!books.length) {
-        container.innerHTML = emptyTemplate('Nincs megjeleníthető könyv.');
-        return;
-    }
-
-    container.innerHTML = books.map(book => `
-        <div class="book-card ${selectedId.books === book.id ? 'selected' : ''}" onclick="selectItem('books', ${book.id})">
-            <div class="book-title">${escapeHtml(book.title || '')}</div>
-            <div class="book-meta"><strong>Szerző:</strong> ${escapeHtml(book.author_name || book.author?.name || '')}</div>
-            <div class="book-meta"><strong>Kiadó:</strong> ${escapeHtml(book.publisher_name || book.publisher?.name || '')}</div>
-            <div class="book-meta"><strong>Kategória:</strong> ${escapeHtml(book.category_name || book.category?.name || '')}</div>
-            ${book.isbn ? `<div class="book-meta"><span class="badge badge-isbn">${escapeHtml(book.isbn)}</span></div>` : ''}
-            ${book.price !== undefined && book.price !== null ? `<div class="book-price">${Number(book.price)} Ft</div>` : ''}
-            ${book.description ? `<div class="book-meta">${escapeHtml(book.description)}</div>` : ''}
-            <div class="book-actions">
-                <button type="button" class="btn-warning" onclick="event.stopPropagation(); editItem('books', ${book.id})">✏️ Szerkesztés</button>
-                <button type="button" class="btn-danger" onclick="event.stopPropagation(); deleteItem('books', ${book.id})">✖️ Törlés</button>
-            </div>
-        </div>
-    `).join('');
-}
-
-async function loadAuthors() {
-    const container = document.getElementById('authors-container');
-    container.innerHTML = loadingTemplate();
-
-    try {
-        const response = await fetch('/authors');
-        const data = await response.json();
-        currentAuthors = data.items || [];
-        renderAuthors(currentAuthors);
-    } catch (err) {
-        console.error(err);
-        container.innerHTML = emptyTemplate('Hiba történt az írók betöltésekor.');
-    }
-}
-
-function renderAuthors(items) {
-    const container = document.getElementById('authors-container');
-
-    if (!items.length) {
-        container.innerHTML = emptyTemplate('Nincs megjeleníthető író.');
-        return;
-    }
-
-    container.innerHTML = items.map(item => `
-        <div class="list-item ${selectedId.authors === item.id ? 'selected' : ''}" onclick="selectItem('authors', ${item.id})">
-            <div class="list-item-info">
-                <div class="list-item-title">${escapeHtml(item.name || '')}</div>
-                <div class="list-item-sub">${escapeHtml(item.bio || 'Nincs bemutatkozás')}</div>
-            </div>
-            <div class="list-item-actions">
-                <button type="button" class="btn-warning" onclick="event.stopPropagation(); editItem('authors', ${item.id})">✏️ Szerkesztés</button>
-                <button type="button" class="btn-danger" onclick="event.stopPropagation(); deleteItem('authors', ${item.id})">✖️ Törlés</button>
-            </div>
-        </div>
-    `).join('');
+function clearBooksFilters() {
+    document.getElementById('books-search').value = '';
+    document.getElementById('filter-author').value = '';
+    document.getElementById('filter-publisher').value = '';
+    document.getElementById('filter-category').value = '';
+    loadBooks();
 }
 
 async function loadPublishers() {
     const container = document.getElementById('publishers-container');
-    container.innerHTML = loadingTemplate();
-
+    container.innerHTML = '<div class="loading"><div class="spinner"></div>Bet\u00f6lt\u00e9s...</div>';
     try {
-        const response = await fetch('/publishers');
-        const data = await response.json();
-        currentPublishers = data.items || [];
-        renderSimpleList('publishers', currentPublishers, 'publishers-container', 'Nincs megjeleníthető kiadó.');
+        const data = await fetch('/publishers').then(r => r.json());
+        currentPublishers = data.items;
+        if (!currentPublishers.length) {
+            container.innerHTML = emptyState('\ud83c\udff7\ufe0f', 'Nincsenek kiad\u00f3k', 'Adj hozz\u00e1 \u00fajat a bal oldali \u0171rlappal!');
+            return;
+        }
+        container.innerHTML = '<div class="simple-list">' + currentPublishers.map(p => `
+            <div class="list-item ${selectedId.publishers === p.id ? 'selected' : ''}" onclick="selectItem('publishers', ${p.id})">
+                <div class="list-item-info">
+                    <div class="list-item-title">\ud83c\udff7\ufe0f ${escapeHtml(p.name)}</div>
+                    <div class="list-item-sub">ID: ${p.id}</div>
+                </div>
+                <div class="list-item-actions">
+                    <button onclick="event.stopPropagation(); editItem('publishers', ${p.id})" class="btn-warning">\u270f\ufe0f</button>
+                    <button onclick="event.stopPropagation(); deleteItem('publishers', ${p.id})" class="btn-danger">\ud83d\uddd1\ufe0f</button>
+                </div>
+            </div>
+        `).join('') + '</div>';
     } catch (err) {
-        console.error(err);
-        container.innerHTML = emptyTemplate('Hiba történt a kiadók betöltésekor.');
+        container.innerHTML = '<div class="alert alert-error">\u274c Hiba a kiad\u00f3k bet\u00f6lt\u00e9sekor!</div>';
     }
 }
 
 async function loadCategories() {
     const container = document.getElementById('categories-container');
-    container.innerHTML = loadingTemplate();
-
+    container.innerHTML = '<div class="loading"><div class="spinner"></div>Bet\u00f6lt\u00e9s...</div>';
     try {
-        const response = await fetch('/categories');
-        const data = await response.json();
-        currentCategories = data.items || [];
-        renderSimpleList('categories', currentCategories, 'categories-container', 'Nincs megjeleníthető kategória.');
+        const data = await fetch('/categories').then(r => r.json());
+        currentCategories = data.items;
+        if (!currentCategories.length) {
+            container.innerHTML = emptyState('\ud83c\udff7\ufe0f', 'Nincsenek kateg\u00f3ri\u00e1k', 'Adj hozz\u00e1 \u00fajat a bal oldali \u0171rlappal!');
+            return;
+        }
+        container.innerHTML = '<div class="simple-list">' + currentCategories.map(c => `
+            <div class="list-item ${selectedId.categories === c.id ? 'selected' : ''}" onclick="selectItem('categories', ${c.id})">
+                <div class="list-item-info">
+                    <div class="list-item-title">\ud83c\udff7\ufe0f ${escapeHtml(c.name)}</div>
+                    <div class="list-item-sub">ID: ${c.id}</div>
+                </div>
+                <div class="list-item-actions">
+                    <button onclick="event.stopPropagation(); editItem('categories', ${c.id})" class="btn-warning">\u270f\ufe0f</button>
+                    <button onclick="event.stopPropagation(); deleteItem('categories', ${c.id})" class="btn-danger">\ud83d\uddd1\ufe0f</button>
+                </div>
+            </div>
+        `).join('') + '</div>';
     } catch (err) {
-        console.error(err);
-        container.innerHTML = emptyTemplate('Hiba történt a kategóriák betöltésekor.');
+        container.innerHTML = '<div class="alert alert-error">\u274c Hiba a kateg\u00f3ri\u00e1k bet\u00f6lt\u00e9sekor!</div>';
     }
 }
 
 async function loadRatings() {
     const container = document.getElementById('ratings-container');
-    container.innerHTML = loadingTemplate();
-
+    container.innerHTML = '<div class="loading"><div class="spinner"></div>Bet\u00f6lt\u00e9s...</div>';
     try {
-        const response = await fetch('/ratings');
-        const data = await response.json();
-        currentRatings = data.items || [];
-        renderRatings(currentRatings);
-    } catch (err) {
-        console.error(err);
-        container.innerHTML = emptyTemplate('Hiba történt az értékelések betöltésekor.');
-    }
-}
-
-function renderSimpleList(section, items, containerId, emptyMessage) {
-    const container = document.getElementById(containerId);
-
-    if (!items.length) {
-        container.innerHTML = emptyTemplate(emptyMessage);
-        return;
-    }
-
-    container.innerHTML = items.map(item => `
-        <div class="list-item ${selectedId[section] === item.id ? 'selected' : ''}" onclick="selectItem('${section}', ${item.id})">
-            <div class="list-item-info">
-                <div class="list-item-title">${escapeHtml(item.name || '')}</div>
-                ${item.description ? `<div class="list-item-sub">${escapeHtml(item.description)}</div>` : ''}
-            </div>
-            <div class="list-item-actions">
-                <button type="button" class="btn-warning" onclick="event.stopPropagation(); editItem('${section}', ${item.id})">✏️ Szerkesztés</button>
-                <button type="button" class="btn-danger" onclick="event.stopPropagation(); deleteItem('${section}', ${item.id})">✖️ Törlés</button>
-            </div>
-        </div>
-    `).join('');
-}
-
-function renderRatings(items) {
-    const container = document.getElementById('ratings-container');
-
-    if (!items.length) {
-        container.innerHTML = emptyTemplate('Nincs megjeleníthető értékelés.');
-        return;
-    }
-
-    container.innerHTML = items.map(item => `
-        <div class="list-item ${selectedId.ratings === item.id ? 'selected' : ''}" onclick="selectItem('ratings', ${item.id})">
-            <div class="list-item-info">
-                <div class="list-item-title">${escapeHtml(item.book_title || item.book?.title || 'Ismeretlen könyv')}</div>
-                <div class="list-item-sub">
-                    <span class="badge badge-score">${escapeHtml(String(item.score ?? '-'))}/5</span>
-                    ${item.review ? ` — ${escapeHtml(item.review)}` : ''}
+        const data = await fetch('/ratings').then(r => r.json());
+        currentRatings = data.items;
+        if (!currentRatings.length) {
+            container.innerHTML = emptyState('\u2b50', 'Nincsenek \u00e9rt\u00e9kel\u00e9sek', 'Adj hozz\u00e1 \u00fajat a bal oldali \u0171rlappal!');
+            return;
+        }
+        container.innerHTML = '<div class="simple-list">' + currentRatings.map(r => `
+            <div class="list-item ${selectedId.ratings === r.id ? 'selected' : ''}" onclick="selectItem('ratings', ${r.id})">
+                <div class="list-item-info">
+                    <div class="list-item-title">
+                        <span class="badge badge-score">${'\u2b50'.repeat(r.score)} ${r.score}/5</span>
+                    </div>
+                    <div class="list-item-sub">K\u00f6nyv ID: ${r.book_id} \u00b7 ${new Date(r.created_at).toLocaleDateString('hu-HU')}</div>
+                </div>
+                <div class="list-item-actions">
+                    <button onclick="event.stopPropagation(); deleteItem('ratings', ${r.id})" class="btn-danger">\ud83d\uddd1\ufe0f</button>
                 </div>
             </div>
-            <div class="list-item-actions">
-                <button type="button" class="btn-danger" onclick="event.stopPropagation(); deleteItem('ratings', ${item.id})">✖️ Törlés</button>
-            </div>
-        </div>
-    `).join('');
+        `).join('') + '</div>';
+    } catch (err) {
+        container.innerHTML = '<div class="alert alert-error">\u274c Hiba az \u00e9rt\u00e9kel\u00e9sek bet\u00f6lt\u00e9sekor!</div>';
+    }
 }
 
 function selectItem(section, id) {
-    selectedId[section] = id;
-
-    if (section === 'books') renderBooks(currentBooks);
-    if (section === 'authors') renderAuthors(currentAuthors);
-    if (section === 'publishers') renderSimpleList('publishers', currentPublishers, 'publishers-container', 'Nincs megjeleníthető kiadó.');
-    if (section === 'categories') renderSimpleList('categories', currentCategories, 'categories-container', 'Nincs megjeleníthető kategória.');
-    if (section === 'ratings') renderRatings(currentRatings);
+    selectedId[section] = selectedId[section] === id ? null : id;
+    reloadSection(section);
 }
 
 function editItem(section, id) {
-    const itemsMap = {
-        books: currentBooks,
-        authors: currentAuthors,
-        publishers: currentPublishers,
-        categories: currentCategories,
-        ratings: currentRatings
-    };
-
-    const item = itemsMap[section].find(i => i.id === id);
+    const items = { books: currentBooks, publishers: currentPublishers, categories: currentCategories, ratings: currentRatings };
+    const item = items[section].find(i => i.id === id);
     if (!item) return;
-
     document.getElementById(`${section}-operation-mode`).value = 'edit';
-    toggleEditMode(section, true);
-    selectedId[section] = id;
-
+    document.getElementById(`${section}-edit-info`).style.display = 'block';
+    document.getElementById(`${section}-submit-btn`).textContent = '\u270f\ufe0f Friss\u00edt\u00e9s';
+    document.getElementById(`${section}-id`).value = item.id;
     if (section === 'books') {
-        document.getElementById('books-title').value = item.title || '';
-        document.getElementById('books-author-id').value = item.author_id || item.author?.id || '';
-        document.getElementById('books-publisher-id').value = item.publisher_id || item.publisher?.id || '';
-        document.getElementById('books-category-id').value = item.category_id || item.category?.id || '';
-        document.getElementById('books-isbn').value = item.isbn || '';
-        document.getElementById('books-price').value = item.price ?? '';
-        document.getElementById('books-description').value = item.description || '';
-        renderBooks(currentBooks);
+        document.getElementById('books-title').value = item.title;
+        document.getElementById('books-isbn').value = item.isbn;
+        document.getElementById('books-price').value = item.price;
+        document.getElementById('books-cover-url').value = item.cover_url;
+        document.getElementById('books-summary').value = item.summary;
+        document.getElementById('books-author-id').value = item.author_id;
+        document.getElementById('books-publisher-id').value = item.publisher_id;
+        document.getElementById('books-category-id').value = item.category_id;
     }
-
-    if (section === 'authors') {
-        document.getElementById('authors-name').value = item.name || '';
-        document.getElementById('authors-bio').value = item.bio || '';
-        renderAuthors(currentAuthors);
-    }
-
-    if (section === 'publishers') {
-        document.getElementById('publishers-name').value = item.name || '';
-        renderSimpleList('publishers', currentPublishers, 'publishers-container', 'Nincs megjeleníthető kiadó.');
-    }
-
-    if (section === 'categories') {
-        document.getElementById('categories-name').value = item.name || '';
-        renderSimpleList('categories', currentCategories, 'categories-container', 'Nincs megjeleníthető kategória.');
-    }
-
+    if (section === 'publishers') document.getElementById('publishers-name').value = item.name;
+    if (section === 'categories') document.getElementById('categories-name').value = item.name;
     if (section === 'ratings') {
-        document.getElementById('ratings-book-id').value = item.book_id || item.book?.id || '';
-        document.getElementById('ratings-score').value = item.score ?? '';
-        document.getElementById('ratings-review').value = item.review || '';
-        renderRatings(currentRatings);
+        document.getElementById('ratings-book-id').value = item.book_id;
+        document.getElementById('ratings-score').value = item.score;
     }
+    selectedId[section] = id;
+    document.getElementById(`${section}-form`).scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
-function resetForm(section) {
-    const form = document.getElementById(`${section}-form`);
-    if (form) form.reset();
-
-    selectedId[section] = null;
-
-    if (section === 'books') renderBooks(currentBooks);
-    if (section === 'authors') renderAuthors(currentAuthors);
-    if (section === 'publishers') renderSimpleList('publishers', currentPublishers, 'publishers-container', 'Nincs megjeleníthető kiadó.');
-    if (section === 'categories') renderSimpleList('categories', currentCategories, 'categories-container', 'Nincs megjeleníthető kategória.');
-    if (section === 'ratings') renderRatings(currentRatings);
+async function deleteItem(section, id) {
+    const names = { books: 'k\u00f6nyvet', publishers: 'kiad\u00f3t', categories: 'kateg\u00f3ri\u00e1t', ratings: '\u00e9rt\u00e9kel\u00e9st' };
+    if (!confirm(`Biztosan t\u00f6rl\u00f6d ezt a ${names[section]}?`)) return;
+    try {
+        const response = await fetch(`/${section}/${id}`, { method: 'DELETE' });
+        if (response.ok) {
+            showAlert(section, '\u2705 Sikeresen t\u00f6r\u00f6lve!', 'success');
+            if (selectedId[section] === id) resetForm(section);
+            reloadSection(section);
+        } else {
+            const err = await response.json();
+            showAlert(section, `\u274c Hiba: ${err.message || 'Ismeretlen hiba'}`, 'error');
+        }
+    } catch (err) {
+        showAlert(section, '\u274c H\u00e1l\u00f3zati hiba!', 'error');
+    }
 }
 
 async function handleSubmit(e, section) {
     e.preventDefault();
-
     const mode = document.getElementById(`${section}-operation-mode`).value;
-    const isEdit = mode === 'edit';
-    const id = selectedId[section];
-
-    if (isEdit && !id) {
-        showAlert('Előbb válassz ki egy elemet szerkesztéshez.', 'error');
-        return;
+    const id = document.getElementById(`${section}-id`).value;
+    let payload = {};
+    let endpoint = '';
+    if (section === 'books') {
+        payload = {
+            title: document.getElementById('books-title').value,
+            isbn: document.getElementById('books-isbn').value,
+            price: parseFloat(document.getElementById('books-price').value),
+            cover_url: document.getElementById('books-cover-url').value,
+            summary: document.getElementById('books-summary').value,
+            author_id: parseInt(document.getElementById('books-author-id').value),
+            publisher_id: parseInt(document.getElementById('books-publisher-id').value),
+            category_id: parseInt(document.getElementById('books-category-id').value)
+        };
+        endpoint = mode === 'edit' ? `/books/${id}` : '/books';
     }
-
-    const payload = buildPayload(section, isEdit);
-
-    const config = getSectionConfig(section);
-    const url = isEdit ? `${config.endpoint}/${id}` : config.endpoint;
-    const method = isEdit ? 'PATCH' : 'POST';
-
+    if (section === 'publishers') {
+        payload = { name: document.getElementById('publishers-name').value };
+        endpoint = mode === 'edit' ? `/publishers/${id}` : '/publishers';
+    }
+    if (section === 'categories') {
+        payload = { name: document.getElementById('categories-name').value };
+        endpoint = mode === 'edit' ? `/categories/${id}` : '/categories';
+    }
+    if (section === 'ratings') {
+        const bookId = document.getElementById('ratings-book-id').value;
+        payload = { score: parseInt(document.getElementById('ratings-score').value) };
+        endpoint = mode === 'edit' ? `/ratings/${id}` : `/books/${bookId}/ratings`;
+    }
     try {
-        const response = await fetch(url, {
-            method,
-            headers: {
-                'Content-Type': 'application/json'
-            },
+        const response = await fetch(endpoint, {
+            method: mode === 'edit' ? 'PATCH' : 'POST',
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
         });
-
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
+        if (response.ok) {
+            showAlert(section, mode === 'edit' ? '\u2705 Sikeresen friss\u00edtve!' : '\u2705 Sikeresen hozz\u00e1adva!', 'success');
+            resetForm(section);
+            reloadSection(section);
+            if (section === 'publishers' || section === 'categories') loadMetadata();
+        } else {
+            const err = await response.json();
+            showAlert(section, `\u274c Hiba: ${err.message || err.error || 'Ismeretlen hiba'}`, 'error');
         }
-
-        showAlert(isEdit ? 'Sikeres frissítés.' : 'Sikeres mentés.', 'success');
-        resetForm(section);
-
-        await reloadSection(section);
-        await loadMetadata();
     } catch (err) {
-        console.error(err);
-        showAlert('A mentés nem sikerült.', 'error');
+        showAlert(section, '\u274c H\u00e1l\u00f3zati hiba!', 'error');
     }
 }
 
-function buildPayload(section, isEdit = false) {
-    if (section === 'books') {
-        return {
-            title: document.getElementById('books-title').value.trim(),
-            author_id: Number(document.getElementById('books-author-id').value),
-            publisher_id: Number(document.getElementById('books-publisher-id').value),
-            category_id: Number(document.getElementById('books-category-id').value),
-            isbn: document.getElementById('books-isbn').value.trim(),
-            price: document.getElementById('books-price').value ? Number(document.getElementById('books-price').value) : null,
-            description: document.getElementById('books-description').value.trim()
-        };
-    }
-
-    if (section === 'authors') {
-        return {
-            name: document.getElementById('authors-name').value.trim(),
-            bio: document.getElementById('authors-bio').value.trim()
-        };
-    }
-
-    if (section === 'publishers') {
-        return {
-            name: document.getElementById('publishers-name').value.trim()
-        };
-    }
-
-    if (section === 'categories') {
-        return {
-            name: document.getElementById('categories-name').value.trim()
-        };
-    }
-
-    if (section === 'ratings') {
-        return {
-            book_id: Number(document.getElementById('ratings-book-id').value),
-            score: Number(document.getElementById('ratings-score').value),
-            review: document.getElementById('ratings-review').value.trim()
-        };
-    }
-
-    return {};
+function resetForm(section) {
+    document.getElementById(`${section}-form`).reset();
+    document.getElementById(`${section}-id`).value = '';
+    document.getElementById(`${section}-operation-mode`).value = 'add';
+    document.getElementById(`${section}-edit-info`).style.display = 'none';
+    document.getElementById(`${section}-submit-btn`).textContent = '\ud83d\udcbe Ment\u00e9s';
+    selectedId[section] = null;
 }
 
-async function deleteItem(section, id) {
-    const config = getSectionConfig(section);
-
-    if (!confirm('Biztosan törölni szeretnéd ezt az elemet?')) {
-        return;
-    }
-
-    try {
-        const response = await fetch(`${config.endpoint}/${id}`, {
-            method: 'DELETE'
-        });
-
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
-        }
-
-        showAlert('Sikeres törlés.', 'success');
-
-        if (selectedId[section] === id) {
-            selectedId[section] = null;
-        }
-
-        await reloadSection(section);
-        await loadMetadata();
-    } catch (err) {
-        console.error(err);
-        showAlert('A törlés nem sikerült.', 'error');
-    }
+function reloadSection(section) {
+    if (section === 'books') loadBooks();
+    if (section === 'publishers') loadPublishers();
+    if (section === 'categories') loadCategories();
+    if (section === 'ratings') loadRatings();
 }
 
-function getSectionConfig(section) {
-    const map = {
-        books: { endpoint: '/books' },
-        authors: { endpoint: '/authors' },
-        publishers: { endpoint: '/publishers' },
-        categories: { endpoint: '/categories' },
-        ratings: { endpoint: '/ratings' }
-    };
-
-    return map[section];
+function showAlert(section, message, type) {
+    const container = document.getElementById(`alert-${section}`);
+    container.innerHTML = `<div class="alert alert-${type}">${message}</div>`;
+    setTimeout(() => container.innerHTML = '', 4000);
 }
 
-async function reloadSection(section) {
-    if (section === 'books') await loadBooks();
-    if (section === 'authors') await loadAuthors();
-    if (section === 'publishers') await loadPublishers();
-    if (section === 'categories') await loadCategories();
-    if (section === 'ratings') await loadRatings();
+function emptyState(icon, title, sub) {
+    return `<div class="empty-state"><div class="empty-state-icon">${icon}</div><h3>${title}</h3><p>${sub}</p></div>`;
 }
 
-function applyBookFilters() {
-    const title = document.getElementById('filter-title').value.trim().toLowerCase();
-    const authorId = document.getElementById('filter-author').value;
-    const publisherId = document.getElementById('filter-publisher').value;
-    const categoryId = document.getElementById('filter-category').value;
-
-    const filtered = currentBooks.filter(book => {
-        const matchTitle = !title || (book.title || '').toLowerCase().includes(title);
-        const matchAuthor = !authorId || String(book.author_id || book.author?.id) === String(authorId);
-        const matchPublisher = !publisherId || String(book.publisher_id || book.publisher?.id) === String(publisherId);
-        const matchCategory = !categoryId || String(book.category_id || book.category?.id) === String(categoryId);
-
-        return matchTitle && matchAuthor && matchPublisher && matchCategory;
-    });
-
-    renderBooks(filtered);
-}
-
-function resetBookFilters() {
-    document.getElementById('filter-title').value = '';
-    document.getElementById('filter-author').value = '';
-    document.getElementById('filter-publisher').value = '';
-    document.getElementById('filter-category').value = '';
-    renderBooks(currentBooks);
-}
-
-function showAlert(message, type = 'success') {
-    const container = document.getElementById('alert-container');
-    const alert = document.createElement('div');
-
-    alert.className = `alert alert-${type === 'success' ? 'success' : 'error'}`;
-    alert.textContent = message;
-
-    container.innerHTML = '';
-    container.appendChild(alert);
-
-    setTimeout(() => {
-        alert.remove();
-    }, 3000);
-}
-
-function loadingTemplate() {
-    return `
-        <div class="loading">
-            <div class="spinner"></div>
-            <div>Betöltés...</div>
-        </div>
-    `;
-}
-
-function emptyTemplate(message) {
-    return `
-        <div class="empty-state">
-            <div class="empty-state-icon">∅</div>
-            <div>${escapeHtml(message)}</div>
-        </div>
-    `;
-}
-
-function escapeHtml(value) {
-    return String(value)
-        .replaceAll('&', '&amp;')
-        .replaceAll('<', '&lt;')
-        .replaceAll('>', '&gt;')
-        .replaceAll('"', '&quot;')
-        .replaceAll("'", '&#039;');
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
 }

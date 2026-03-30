@@ -1,268 +1,217 @@
 <!DOCTYPE html>
 <html lang="hu">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Könyv</title>
-    <link rel="stylesheet" href="styles.css" />
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Könyvtár Manager</title>
+    <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
     <div class="container">
         <header>
-            <h1>📚 Könyvek</h1>
-            <p>Könyvek adatábzis</p>
+            <h1>📚 Könyvtár Manager</h1>
+            <p>Kezeld a könyveket, szerzőket, kiadókat, kategóriákat és értékeléseket</p>
         </header>
 
-        <div class="tabs">
-            <button class="tab-btn active" onclick="switchTab('books', event)">📖 Könyvek</button>
-            <button class="tab-btn" onclick="switchTab('authors', event)">✍️ Írók</button>
-            <button class="tab-btn" onclick="switchTab('publishers', event)">🏢 Kiadók</button>
-            <button class="tab-btn" onclick="switchTab('categories', event)">🏷 Kategóriák</button>
-            <button class="tab-btn" onclick="switchTab('ratings', event)">⭐ Értékelések</button>
-        </div>
+        <!-- TAB NAVIGÁCIÓ -->
+        <nav class="tabs">
+            <button class="tab-btn active" onclick="switchTab('books')">&#128214; Könyvek</button>
+            <button class="tab-btn" onclick="switchTab('publishers')">&#127970; Kiadók</button>
+            <button class="tab-btn" onclick="switchTab('categories')">&#127991; Kategóriák</button>
+            <button class="tab-btn" onclick="switchTab('ratings')">&#11088; Értékelések</button>
+        </nav>
 
-        <div id="alert-container"></div>
-
+        <!-- KÖNYVEK TAB -->
         <div id="tab-books" class="tab-content active">
             <div class="content">
                 <aside class="sidebar">
-                    <h2 class="section-title">📖 Könyv kezelése</h2>
-
+                    <div class="section-title">📝 Könyv Műveletek</div>
+                    <div id="alert-books"></div>
                     <div class="form-group">
-                        <label for="books-operation-mode">Művelet</label>
+                        <label>Művelet típusa</label>
                         <select id="books-operation-mode">
-                            <option value="create">Új könyv</option>
-                            <option value="edit">Meglévő szerkesztése</option>
+                            <option value="add">➕ Új könyv hozzáadása</option>
+                            <option value="edit">✏️ Könyv szerkesztése</option>
                         </select>
                     </div>
-
-                    <div id="books-edit-info" class="edit-info" style="display: none;">
-                        Válassz ki egy könyvet a listából szerkesztéshez vagy törléshez.
+                    <div id="books-edit-info" class="edit-info" style="display:none;">
+                        <strong>ℹ️ Szerkesztési mód:</strong><br>Kattints egy könyvre!
                     </div>
-
                     <form id="books-form">
+                        <input type="hidden" id="books-id">
                         <div class="form-group">
-                            <label for="books-title">Cím</label>
-                            <input type="text" id="books-title" required />
+                            <label>Cím *</label>
+                            <input type="text" id="books-title" required placeholder="pl. Harry Potter">
                         </div>
-
                         <div class="form-group">
-                            <label for="books-author-id">Szerző</label>
-                            <select id="books-author-id" required></select>
+                            <label>ISBN *</label>
+                            <input type="text" id="books-isbn" required placeholder="pl. 9780451524935">
                         </div>
-
                         <div class="form-group">
-                            <label for="books-publisher-id">Kiadó</label>
-                            <select id="books-publisher-id" required></select>
+                            <label>Ár (Ft) *</label>
+                            <input type="number" id="books-price" required min="0" step="0.01" placeholder="pl. 3990">
                         </div>
-
                         <div class="form-group">
-                            <label for="books-category-id">Kategória</label>
-                            <select id="books-category-id" required></select>
+                            <label>Borítókép URL *</label>
+                            <input type="url" id="books-cover-url" required placeholder="https://example.com/cover.jpg">
                         </div>
-
                         <div class="form-group">
-                            <label for="books-isbn">ISBN</label>
-                            <input type="text" id="books-isbn" />
+                            <label>Összefoglaló *</label>
+                            <textarea id="books-summary" required placeholder="Rövid leírás..."></textarea>
                         </div>
-
                         <div class="form-group">
-                            <label for="books-price">Ár</label>
-                            <input type="number" id="books-price" step="0.01" min="0" />
+                            <label>Szerző *</label>
+                            <select id="books-author-id" required>
+                                <option value="">-- Válassz szerzőt --</option>
+                            </select>
                         </div>
-
                         <div class="form-group">
-                            <label for="books-description">Leírás</label>
-                            <textarea id="books-description"></textarea>
+                            <label>Kiadó *</label>
+                            <select id="books-publisher-id" required>
+                                <option value="">-- Válassz kiadót --</option>
+                            </select>
                         </div>
-
+                        <div class="form-group">
+                            <label>Kategória *</label>
+                            <select id="books-category-id" required>
+                                <option value="">-- Válassz kategóriát --</option>
+                            </select>
+                        </div>
                         <button type="submit" id="books-submit-btn">💾 Mentés</button>
-                        <button type="button" class="btn-secondary" id="books-reset-btn">↺ Alaphelyzet</button>
+                        <button type="button" class="btn-secondary" id="books-reset-btn">🔄 Törlés</button>
                     </form>
                 </aside>
-
                 <main class="main">
-                    <h2 class="section-title">📖 Könyvek listája</h2>
-
+                    <div class="section-title">📖 Könyvek listája</div>
                     <div class="filters">
                         <div class="filter-row">
-                            <input type="text" id="filter-title" placeholder="Keresés cím alapján..." />
-                            <select id="filter-author">
-                                <option value="">-- Összes szerző --</option>
-                            </select>
-                            <select id="filter-publisher">
-                                <option value="">-- Összes kiadó --</option>
-                            </select>
+                            <input type="text" id="books-search" placeholder="🔍 Keresés...">
+                            <button onclick="loadBooks()">Szűrés</button>
                         </div>
                         <div class="filter-row">
-                            <select id="filter-category">
-                                <option value="">-- Összes kategória --</option>
-                            </select>
-                            <button type="button" onclick="applyBookFilters()">Szűrés</button>
-                            <button type="button" class="btn-secondary" onclick="resetBookFilters()">Reset</button>
+                            <select id="filter-author"><option value="">-- Összes szerző --</option></select>
+                            <select id="filter-publisher"><option value="">-- Összes kiadó --</option></select>
+                            <select id="filter-category"><option value="">-- Összes kategória --</option></select>
+                            <button class="btn-secondary" onclick="clearBooksFilters()">✖️ Törlés</button>
                         </div>
                     </div>
-
-                    <div id="books-container" class="books-grid"></div>
+                    <div id="books-container"></div>
                 </main>
             </div>
         </div>
 
-        <div id="tab-authors" class="tab-content">
-            <div class="content">
-                <aside class="sidebar">
-                    <h2 class="section-title">✍️ Író kezelése</h2>
-
-                    <div class="form-group">
-                        <label for="authors-operation-mode">Művelet</label>
-                        <select id="authors-operation-mode">
-                            <option value="create">Új író</option>
-                            <option value="edit">Meglévő szerkesztése</option>
-                        </select>
-                    </div>
-
-                    <div id="authors-edit-info" class="edit-info" style="display: none;">
-                        Válassz ki egy írót a listából szerkesztéshez vagy törléshez.
-                    </div>
-
-                    <form id="authors-form">
-                        <div class="form-group">
-                            <label for="authors-name">Név</label>
-                            <input type="text" id="authors-name" required />
-                        </div>
-
-                        <div class="form-group">
-                            <label for="authors-bio">Bemutatkozás</label>
-                            <textarea id="authors-bio" placeholder="Rövid bemutatás az íróról..."></textarea>
-                        </div>
-
-                        <button type="submit" id="authors-submit-btn">💾 Mentés</button>
-                        <button type="button" class="btn-secondary" id="authors-reset-btn">↺ Alaphelyzet</button>
-                    </form>
-                </aside>
-
-                <main class="main">
-                    <h2 class="section-title">✍️ Írók listája</h2>
-                    <div id="authors-container" class="simple-list"></div>
-                </main>
-            </div>
-        </div>
-
+        <!-- KIADÓK TAB -->
         <div id="tab-publishers" class="tab-content">
             <div class="content">
                 <aside class="sidebar">
-                    <h2 class="section-title">🏢 Kiadó kezelése</h2>
-
+                    <div class="section-title">🏷️ Kiadó Műveletek</div>
+                    <div id="alert-publishers"></div>
                     <div class="form-group">
-                        <label for="publishers-operation-mode">Művelet</label>
+                        <label>Művelet típusa</label>
                         <select id="publishers-operation-mode">
-                            <option value="create">Új kiadó</option>
-                            <option value="edit">Meglévő szerkesztése</option>
+                            <option value="add">➕ Új kiadó hozzáadása</option>
+                            <option value="edit">✏️ Kiadó szerkesztése</option>
                         </select>
                     </div>
-
-                    <div id="publishers-edit-info" class="edit-info" style="display: none;">
-                        Válassz ki egy kiadót a listából szerkesztéshez vagy törléshez.
+                    <div id="publishers-edit-info" class="edit-info" style="display:none;">
+                        <strong>ℹ️ Szerkesztési mód:</strong><br>Kattints egy kiadóra!
                     </div>
-
                     <form id="publishers-form">
+                        <input type="hidden" id="publishers-id">
                         <div class="form-group">
-                            <label for="publishers-name">Név</label>
-                            <input type="text" id="publishers-name" required />
+                            <label>Kiadó neve *</label>
+                            <input type="text" id="publishers-name" required placeholder="pl. Penguin Books">
                         </div>
-
                         <button type="submit" id="publishers-submit-btn">💾 Mentés</button>
-                        <button type="button" class="btn-secondary" id="publishers-reset-btn">↺ Alaphelyzet</button>
+                        <button type="button" class="btn-secondary" id="publishers-reset-btn">🔄 Törlés</button>
                     </form>
                 </aside>
-
                 <main class="main">
-                    <h2 class="section-title">🏢 Kiadók listája</h2>
-                    <div id="publishers-container" class="simple-list"></div>
+                    <div class="section-title">🏷️ Kiadók listája</div>
+                    <div id="publishers-container"></div>
                 </main>
             </div>
         </div>
 
+        <!-- KATEGÓRIÁK TAB -->
         <div id="tab-categories" class="tab-content">
             <div class="content">
                 <aside class="sidebar">
-                    <h2 class="section-title">🏷 Kategória kezelése</h2>
-
+                    <div class="section-title">🏷️ Kategória Műveletek</div>
+                    <div id="alert-categories"></div>
                     <div class="form-group">
-                        <label for="categories-operation-mode">Művelet</label>
+                        <label>Művelet típusa</label>
                         <select id="categories-operation-mode">
-                            <option value="create">Új kategória</option>
-                            <option value="edit">Meglévő szerkesztése</option>
+                            <option value="add">➕ Új kategória hozzáadása</option>
+                            <option value="edit">✏️ Kategória szerkesztése</option>
                         </select>
                     </div>
-
-                    <div id="categories-edit-info" class="edit-info" style="display: none;">
-                        Válassz ki egy kategóriát a listából szerkesztéshez vagy törléshez.
+                    <div id="categories-edit-info" class="edit-info" style="display:none;">
+                        <strong>ℹ️ Szerkesztési mód:</strong><br>Kattints egy kategóriára!
                     </div>
-
                     <form id="categories-form">
+                        <input type="hidden" id="categories-id">
                         <div class="form-group">
-                            <label for="categories-name">Név</label>
-                            <input type="text" id="categories-name" required />
+                            <label>Kategória neve *</label>
+                            <input type="text" id="categories-name" required placeholder="pl. Sci-Fi">
                         </div>
-
                         <button type="submit" id="categories-submit-btn">💾 Mentés</button>
-                        <button type="button" class="btn-secondary" id="categories-reset-btn">↺ Alaphelyzet</button>
+                        <button type="button" class="btn-secondary" id="categories-reset-btn">🔄 Törlés</button>
                     </form>
                 </aside>
-
                 <main class="main">
-                    <h2 class="section-title">🏷️ Kategóriák listája</h2>
-                    <div id="categories-container" class="simple-list"></div>
+                    <div class="section-title">🏷️ Kategóriák listája</div>
+                    <div id="categories-container"></div>
                 </main>
             </div>
         </div>
 
+        <!-- ÉRTÉKELÉSEK TAB -->
         <div id="tab-ratings" class="tab-content">
             <div class="content">
                 <aside class="sidebar">
-                    <h2 class="section-title">⭐ Értékelés kezelése</h2>
-
+                    <div class="section-title">⭐ Értékelés Műveletek</div>
+                    <div id="alert-ratings"></div>
                     <div class="form-group">
-                        <label for="ratings-operation-mode">Művelet</label>
+                        <label>Művelet típusa</label>
                         <select id="ratings-operation-mode">
-                            <option value="create">Új értékelés</option>
+                            <option value="add">➕ Új értékelés hozzáadása</option>
                         </select>
                     </div>
-
-                    <div id="ratings-edit-info" class="edit-info" style="display: none;">
-                        Válassz ki egy értékelést a listából szerkesztéshez vagy törléshez.
+                    <div id="ratings-edit-info" class="edit-info" style="display:none;">
+                        <strong>ℹ️ Szerkesztési mód:</strong><br>Kattints egy értékelésre!
                     </div>
-
                     <form id="ratings-form">
+                        <input type="hidden" id="ratings-id">
                         <div class="form-group">
-                            <label for="ratings-book-id">Könyv</label>
-                            <select id="ratings-book-id" required></select>
+                            <label>Könyv *</label>
+                            <select id="ratings-book-id" required>
+                                <option value="">-- Válassz könyvet --</option>
+                            </select>
                         </div>
-
                         <div class="form-group">
-                            <label for="ratings-score">Pontszám (1-5)</label>
-                            <input type="number" id="ratings-score" min="1" max="5" required />
+                            <label>Pontszám (1-5) *</label>
+                            <select id="ratings-score" required>
+                                <option value="">-- Válassz --</option>
+                                <option value="1">⭐ 1 - Gyenge</option>
+                                <option value="2">⭐⭐ 2 - Közepes</option>
+                                <option value="3">⭐⭐⭐ 3 - Jó</option>
+                                <option value="4">⭐⭐⭐⭐ 4 - Nagyon jó</option>
+                                <option value="5">⭐⭐⭐⭐⭐ 5 - Kiváló</option>
+                            </select>
                         </div>
-
-                        <div class="form-group">
-                            <label for="ratings-review">Vélemény</label>
-                            <textarea id="ratings-review"></textarea>
-                        </div>
-
                         <button type="submit" id="ratings-submit-btn">💾 Mentés</button>
-                        <button type="button" class="btn-secondary" id="ratings-reset-btn">↺ Alaphelyzet</button>
+                        <button type="button" class="btn-secondary" id="ratings-reset-btn">🔄 Törlés</button>
                     </form>
                 </aside>
-
                 <main class="main">
-                    <h2 class="section-title">⭐ Értékelések listája</h2>
-                    <div id="ratings-container" class="simple-list"></div>
+                    <div class="section-title">⭐ Értékelések listája</div>
+                    <div id="ratings-container"></div>
                 </main>
             </div>
         </div>
     </div>
 
-    <script src="script.js"></script>
+    <script src="/script.js"></script>
 </body>
 </html>
